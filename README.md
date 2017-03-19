@@ -63,6 +63,12 @@ PINOUT for Arduino Nano and Wemos MiniD1/ESP8266:
            |         |   NO2  ---> to LOut @ RDA5807M
 
 ```
+
+Wemos D1 Mini Wiring
+
+  [![Wemos D1 Mini Wiring](https://raw.githubusercontent.com/tobozo/ghetto_blaster/master/mp3-fm-radio-wemos_bb.jpg)](https://raw.githubusercontent.com/tobozo/ghetto_blaster/master/mp3-fm-radio-wemos_bb.jpg)
+
+
 Arduino Wiring
 
   [![Arduino Wiring](https://raw.githubusercontent.com/tobozo/ghetto_blaster/master/mp3-fm-radio_bb.jpg)](https://raw.githubusercontent.com/tobozo/ghetto_blaster/master/mp3-fm-radio_bb.jpg)
