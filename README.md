@@ -1,5 +1,5 @@
 
-Ipod like controls for Arduino Nano or Wemos MiniD1.
+# Rotary controls for Arduino Nano or Wemos MiniD1 mp3/tuner.
 
 Components:
 
