@@ -3,7 +3,7 @@
 
 Components:
 
-  - Wemos Mini D1
+  - Arduino Nano or Wemos Mini D1
   - Tuner RDA5807M I2C 
   - Catalex Serial MP3 Player
   - DR21A01 DC 5V DPDT Relay Module (2 chan audio)
@@ -61,8 +61,11 @@ PINOUT for Arduino Nano and Wemos MiniD1/ESP8266:
            |         |   NC2  ---> to LOut @ Catalex MP3
            |         |   NO1  ---> to ROut @ RDA5807M
            |         |   NO2  ---> to LOut @ RDA5807M
-  
-  ```
+
+```
+Arduino Wiring
+
+  [![Arduino Wiring](https://raw.githubusercontent.com/tobozo/ghetto_blaster/master/mp3-fm-radio_bb.jpg)](https://raw.githubusercontent.com/tobozo/ghetto_blaster/master/mp3-fm-radio_bb.jpg)
 
 
 Prototype #1 (only mp3 player)
@@ -74,6 +77,6 @@ Prototype #2 (added tuner, no wiring yet, sudo make me a sandwich)
 
   [![Prototype 2](https://img.youtube.com/vi/UQzi_qFmI6I/0.jpg)](https://www.youtube.com/watch?v=UQzi_qFmI6I)
   
-  
-  
+
+
   
