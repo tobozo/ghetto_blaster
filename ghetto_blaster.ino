@@ -55,7 +55,7 @@
  * 
  */
 
-#define debug false
+#define debug true
 #ifdef ESP8266
 #define ARDUINO_AUDIO_RELAY_PIN D8 // relay sound LOW/HIGH for DR21A01 DC 5V DPDT
 #else
@@ -81,8 +81,8 @@ void setup() {
   initTuner();
   
   pinMode(ARDUINO_AUDIO_RELAY_PIN, OUTPUT); // init audio relay
-  //digitalWrite(ARDUINO_AUDIO_RELAY_PIN, HIGH);//DTDT relay activation
-  digitalWrite(ARDUINO_AUDIO_RELAY_PIN, LOW);//DTDT relay inactive
+  digitalWrite(ARDUINO_AUDIO_RELAY_PIN, HIGH);//DTDT relay activation
+  //digitalWrite(ARDUINO_AUDIO_RELAY_PIN, LOW);//DTDT relay inactive
 }
 
 void loop() {

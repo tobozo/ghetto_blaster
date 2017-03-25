@@ -15,8 +15,8 @@ boolean repaint_needed = true;
 
 #ifdef ESP8266
 const uint8_t RotaryPinCLK=D6;                   // Used for generating interrupts using CLK signal
-const uint8_t RotaryPinDT=D5;                    // Used for reading DT signal
-const uint8_t RotaryPinSW=D7;                    // Used for the push button switch
+const uint8_t RotaryPinDT=D7;                    // Used for reading DT signal
+const uint8_t RotaryPinSW=D5;                    // Used for the push button switch
 #else
 const uint8_t RotaryPinCLK=7;                   // Used for generating interrupts using CLK signal
 const uint8_t RotaryPinDT=2;                    // Used for reading DT signal

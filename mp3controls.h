@@ -1,8 +1,8 @@
 #include <SoftwareSerial.h>
 
 #ifdef ESP8266
-#define ARDUINO_RX D3 // should connect to TX of the Serial MP3 Player module
-#define ARDUINO_TX D4 // connect to RX of the module
+#define ARDUINO_RX D4 // should connect to TX of the Serial MP3 Player module
+#define ARDUINO_TX D3 // connect to RX of the module
 SoftwareSerial mp3Serial(ARDUINO_RX, ARDUINO_TX);
 #else
 #define ARDUINO_RX 10 // should connect to TX of the Serial MP3 Player module
@@ -345,12 +345,12 @@ void handleMenu()  {
                   ScrollText = "";
                   if(playmodes[playmode]==LABEL_MODE_MP3) {
                     playmodes[playmode] = LABEL_MODE_TUNER;
-                    digitalWrite(ARDUINO_AUDIO_RELAY_PIN, HIGH);//DTDT relay inactive
+                    digitalWrite(ARDUINO_AUDIO_RELAY_PIN, LOW);//DTDT relay inactive
                     runMP3SerialCommand(CMD_SLEEP_MODE, 0);
                     setTunerInfo();
                   } else {
                     playmodes[playmode] = LABEL_MODE_MP3;
-                    digitalWrite(ARDUINO_AUDIO_RELAY_PIN, LOW);//DTDT relay inactive
+                    digitalWrite(ARDUINO_AUDIO_RELAY_PIN, HIGH);//DTDT relay inactive
                     runMP3SerialCommand(CMD_WAKE_UP, 0);
                     delay(200);
                     runMP3SerialCommand(CMD_PLAY, 0);

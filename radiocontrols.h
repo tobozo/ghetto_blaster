@@ -81,10 +81,10 @@ void runTunerSerialCommand(char cmd, int16_t value) {
       
   RADIO_INFO ri;
   if(cmd == 'r') {
-    digitalWrite(ARDUINO_AUDIO_RELAY_PIN, HIGH);//DTDT relay inactive
+    digitalWrite(ARDUINO_AUDIO_RELAY_PIN, LOW);//DTDT relay inactive
     //Serial.println(cmd);
   } else if (cmd == 'm') {
-    digitalWrite(ARDUINO_AUDIO_RELAY_PIN, LOW);//DTDT relay inactive
+    digitalWrite(ARDUINO_AUDIO_RELAY_PIN, HIGH);//DTDT relay inactive
     //Serial.println(cmd);
   } else if (cmd == '+') { // ----- control the volume and audio output -----
     // increase volume

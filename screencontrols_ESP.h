@@ -243,6 +243,7 @@ void initDisplay() {
   display.begin();
   display.setColorIndex(1); // init display  
   display.setFont(u8g_font_unifont);
+  display.setDisplayRotation(U8G2_R2);
 }
 
 
