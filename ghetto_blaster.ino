@@ -66,6 +66,9 @@
 #include "radiocontrols.h" // FM Stereo Radio Module RDA5807M
 #include "mp3controls.h"
 
+#ifdef ESP8266
+#include "wificontrols.h"
+#endif
 
 
 
@@ -83,10 +86,23 @@ void setup() {
   pinMode(ARDUINO_AUDIO_RELAY_PIN, OUTPUT); // init audio relay
   digitalWrite(ARDUINO_AUDIO_RELAY_PIN, HIGH);//DTDT relay activation
   //digitalWrite(ARDUINO_AUDIO_RELAY_PIN, LOW);//DTDT relay inactive
+
+  #ifdef ESP8266
+  setupOta();
+  #endif
+
+  
 }
 
 void loop() {
-
+  
+  #ifdef ESP8266
+  if(otaready==true) {
+    handleOta();
+    return;
+  }
+  #endif
+ 
   handleMenu();
 
   #ifdef ESP8266

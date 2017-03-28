@@ -1,3 +1,5 @@
+// From http://www.mathertel.de/Arduino/RadioLibrary.aspx
+// needs some tweaking to work with Arduino Nano without eating memory
 #include <radio.h>
 
 #define USE_RDS true
