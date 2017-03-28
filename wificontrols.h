@@ -2,7 +2,6 @@
 
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
-//#include <ESP8266WebServer.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <FS.h>
@@ -10,18 +9,29 @@
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <SPIFFSEditor.h>
-//#include <TimeLib.h>
 
 extern "C" {
   #include "user_interface.h"
 }
 
-//ESP8266WebServer server(80);
 
 // SKETCH BEGIN
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 AsyncEventSource events("/events");
+
+
+
+/* Set these to your desired credentials */
+const char *ssid = "ghetto";
+const char *password = "blaster1234";
+const char* http_username = "admin";
+const char* http_password = "admin";
+
+// OTA updatable as long as the bool is true
+bool otaready = true;
+int otawait = 20000; // how long to wait for OTA at boot (millisec)
+int otanow; // time counter for OTA update
 
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
@@ -67,6 +77,22 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         RotarySwitchDetected = true;
       }
 
+      String out = "";
+      uint8_t * bufferptr = display.getBufferPtr();
+      int buffersize = 8 * display.getBufferTileHeight() * display.getBufferTileWidth();
+
+      Serial.println("Display buffer " + String(buffersize));
+
+      
+      for(int i=0;i<buffersize; i++) {
+        Serial.print( bufferptr[i], HEX );
+        Serial.print(" ");
+        if(i%8==0) Serial.println();
+        out += (char) bufferptr[i];
+      }
+
+      client->binary(out);
+
       if(info->opcode == WS_TEXT)
         client->text("I got your text message");
       else
@@ -110,16 +136,6 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 
 
 
-/* Set these to your desired credentials. */
-const char *ssid = "ghetto";
-const char *password = "blaster1234";
-const char* http_username = "admin";
-const char* http_password = "admin";
-
-// OTA updatable as long as the bool is true
-bool otaready = true;
-int otawait = 5000; // how long to wait for OTA at boot (millisec)
-int otanow; // time counter for OTA update
 
 void drawOta() {
     while( display.nextPage() );
@@ -157,127 +173,8 @@ void stopWifi() {
   delay(300);
 }
 
-void setupOta() {
-  ESP.eraseConfig();
-  display.firstPage();
-  
-  Serial.begin(115200);
-  display.drawStr(10, 50, "OTA Check");
-  progressbar(1);
-  drawOta();
 
-  #if DEBUGOTA==true
-    Serial.println("OTA Check");
-    //Serial.print("Setting Hostname: ");
-    //Serial.println(ESPName);
-    Serial.print("MAC Address:");
-    Serial.printf("%02x", WiFi.macAddress()[0]);
-    Serial.print(":");
-    Serial.printf("%02x", WiFi.macAddress()[1]);
-    Serial.print(":");
-    Serial.printf("%02x", WiFi.macAddress()[2]);
-    Serial.print(":");
-    Serial.printf("%02x", WiFi.macAddress()[3]);
-    Serial.print(":");
-    Serial.printf("%02x", WiFi.macAddress()[4]);
-    Serial.print(":");
-    Serial.printf("%02x", WiFi.macAddress()[5]);
-    Serial.println();
-  #endif
-  
-  //WiFi.hostname("GhettoBlasterOTA");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin("OAGUEST"); // see you on shodan.io :)
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    #if DEBUGOTA==true
-      Serial.println("Connection Failed! Aborting...");
-    #endif
-    display.drawStr(10, 50, "OTA Fail, aborting");
-    drawOta();
-    delay(1000);
-    otaready = false;
-    stopWifi();
-    startWifi();
-    return;
-  }
-
-  progressbar(10);
-  drawOta();
-
-  ArduinoOTA.onStart([]() {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH)
-      type = "sketch";
-    else // U_SPIFFS
-      type = "filesystem";
-
-    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-    #if DEBUGOTA==true
-      Serial.println("Start updating " + type);
-    #endif
-  });
-  ArduinoOTA.onEnd([]() {
-    #if DEBUGOTA==true
-      Serial.println("\nEnd");
-    #endif
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    #if DEBUGOTA==true
-      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-    #endif
-    //display.clear();
-    display.drawStr(10, 50, "OTA Flashing");
-    progressbar((progress / (total / 100)));
-    //display.drawProgressBar(14, 27, 100, 10, 20);
-    drawOta();
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    #if DEBUGOTA==true
-      Serial.printf("Error[%u]: ", error);
-    #endif
-    //display.clear();
-    display.drawStr(10, 50, "Error");
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    otaready = false;
-    drawOta();
-  });
-
-  ArduinoOTA.setHostname("GhettoBlaster");
-  ArduinoOTA.begin();
-
-  //display.clear();
-  //display.drawProgressBar(14, 27, 100, 10, 20);
-  progressbar(20);
-  display.drawStr(10, 50, "OTA Ready");
-  drawOta();
-  #if DEBUGOTA==true
-    Serial.println("Ready");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-  #endif
-  otanow = millis();
-  drawOta();
-}
-
-
-void handleOta() {
-  display.firstPage();
-  
-  int then = millis();
-  if(then - otawait < otanow) {
-    int percent = 100-(ceil(then - otanow) / (otawait / 100))+1;
-    progressbar(percent);
-    ArduinoOTA.handle();
-  } else {
-    otaready = false;
-    stopWifi();
-    startWifi();
-    delay(300);
-
+void startSocketServer() {
     MDNS.addService("http","tcp",80);
   
     SPIFFS.begin();
@@ -360,6 +257,133 @@ void handleOta() {
         Serial.printf("BodyEnd: %u\n", total);
     });
     server.begin();
+}
+
+
+void setupOta() {
+  ESP.eraseConfig();
+  display.firstPage();
+  
+  Serial.begin(115200);
+  display.drawStr(10, 50, "OTA Check");
+  progressbar(1);
+  drawOta();
+
+  #if DEBUGOTA==true
+    Serial.println("OTA Check");
+    //Serial.print("Setting Hostname: ");
+    //Serial.println(ESPName);
+    Serial.print("MAC Address:");
+    Serial.printf("%02x", WiFi.macAddress()[0]);
+    Serial.print(":");
+    Serial.printf("%02x", WiFi.macAddress()[1]);
+    Serial.print(":");
+    Serial.printf("%02x", WiFi.macAddress()[2]);
+    Serial.print(":");
+    Serial.printf("%02x", WiFi.macAddress()[3]);
+    Serial.print(":");
+    Serial.printf("%02x", WiFi.macAddress()[4]);
+    Serial.print(":");
+    Serial.printf("%02x", WiFi.macAddress()[5]);
+    Serial.println();
+  #endif
+  
+  //WiFi.hostname("GhettoBlasterOTA");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(); // see you on shodan.io :)
+  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    #if DEBUGOTA==true
+      Serial.println("Connection Failed! Aborting...");
+    #endif
+    display.drawStr(10, 50, "OTA Fail, aborting");
+    drawOta();
+    delay(1000);
+    otaready = false;
+    stopWifi();
+    startWifi();
+    delay(300);
+    startSocketServer();
+    return;
+  }
+
+  progressbar(10);
+  drawOta();
+
+  ArduinoOTA.onStart([]() {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH)
+      type = "sketch";
+    else // U_SPIFFS
+      type = "filesystem";
+
+    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+    #if DEBUGOTA==true
+      Serial.println("Start updating " + type);
+    #endif
+  });
+  ArduinoOTA.onEnd([]() {
+    #if DEBUGOTA==true
+      Serial.println("\nEnd");
+    #endif
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    #if DEBUGOTA==true
+      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    #endif
+    //display.clear();
+    display.drawStr(10, 50, "OTA Flashing");
+    progressbar((progress / (total / 100)));
+    //display.drawProgressBar(14, 27, 100, 10, 20);
+    drawOta();
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    #if DEBUGOTA==true
+      Serial.printf("Error[%u]: ", error);
+    #endif
+    //display.clear();
+    display.drawStr(10, 50, "Error");
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    otaready = false;
+    drawOta();
+  });
+
+  ArduinoOTA.setHostname("GhettoBlaster");
+  ArduinoOTA.begin();
+
+  //display.clear();
+  //display.drawProgressBar(14, 27, 100, 10, 20);
+  progressbar(20);
+  display.drawStr(10, 50, "OTA Ready");
+  drawOta();
+  #if DEBUGOTA==true
+    Serial.println("Ready");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+  #endif
+  otanow = millis();
+  drawOta();
+}
+
+
+void handleOta() {
+  display.firstPage();
+  
+  int then = millis();
+  if(then - otawait < otanow) {
+    int percent = 100-(ceil(then - otanow) / (otawait / 100))+1;
+    progressbar(percent);
+    ArduinoOTA.handle();
+  } else {
+    otaready = false;
+    //stopWifi();
+    //startWifi();
+    delay(300);
+
+    startSocketServer();
   
     
   }
