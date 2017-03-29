@@ -25,6 +25,8 @@ const uint8_t RotaryPinSW=3;                    // Used for the push button swit
 
 unsigned long Rotarydebounce = 0;
 unsigned long Switchdebounce = 0;
+uint8_t accel = 1;
+
 
 void onRotaryClick()  {
   RotaryUp = (digitalRead(RotaryPinCLK) == digitalRead(RotaryPinDT));
@@ -48,6 +50,6 @@ void initRotary() {
   attachInterrupt (digitalPinToInterrupt(RotaryPinDT), onRotaryClick, CHANGE);
   attachInterrupt (digitalPinToInterrupt(RotaryPinSW), onRotaryRotate, CHANGE);
   #if debug==true
-    Serial.println("Rotary listening");
+    Serial.println("Rotary interrupts enabled");
   #endif
 }

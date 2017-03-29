@@ -20,8 +20,6 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 AsyncEventSource events("/events");
 
-
-
 /* Set these to your desired credentials */
 const char *ssid = "ghetto";
 const char *password = "blaster1234";
@@ -33,12 +31,50 @@ bool otaready = true;
 int otawait = 20000; // how long to wait for OTA at boot (millisec)
 int otanow; // time counter for OTA update
 
+long lastfps = 0;
+long fpsdebounce = 500; // no less than 1000ms between frames
+bool rendering = false;
+
+String ScreenPixels = "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+
+void drawPage() {
+    while( display.nextPage() );
+}
+
+void progressbar(uint8_t a) {
+    //display.drawStr(20, 40, (char*)a);
+    //display.drawStr(40, 40, "%");
+    display.drawFrame(0,50,120,10);
+    display.drawBox(0, 50, a, 10);
+    drawPage();
+}
+
+void screenCapture() {
+    if(rendering==false) return;
+    display.firstPage();
+    //handleMenu();
+    draw();
+    drawPage();
+    
+    ScreenPixels = "";      
+    uint8_t * bufferptr = display.getBufferPtr();
+    int buffersize = 8 * display.getBufferTileHeight() * display.getBufferTileWidth();
+    for(int i=0;i<buffersize; i++) {
+      ScreenPixels += (char) bufferptr[i];
+    }
+}
+
+
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
   if(type == WS_EVT_CONNECT){
     Serial.printf("ws[%s][%u] connect\n", server->url(), client->id());
-    client->printf("Hello Client %u :)", client->id());
-    client->ping();
+    //client->printf("Hello Client %u :)", client->id());
+    rendering = true;
+    screenCapture();
+    client->binary(ScreenPixels);
+    lastfps = millis();
+    //client->ping();
   } else if(type == WS_EVT_DISCONNECT){
     Serial.printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
   } else if(type == WS_EVT_ERROR){
@@ -50,7 +86,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
     String msg = "";
     if(info->final && info->index == 0 && info->len == len){
       //the whole message is in a single frame and we got all of it's data
-      Serial.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
+      //Serial.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
 
       if(info->opcode == WS_TEXT){
         for(size_t i=0; i < info->len; i++) {
@@ -63,7 +99,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
           msg += buff ;
         }
       }
-      Serial.printf("%s\n",msg.c_str());
+      //Serial.printf("%s\n",msg.c_str());
 
       if(msg=="rotaryup") {
         RotaryTurnDetected = true;
@@ -75,30 +111,33 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         
       } else if(msg=="rotaryclick") {
         RotarySwitchDetected = true;
-      }
-
-      String out = "";
-      uint8_t * bufferptr = display.getBufferPtr();
-      int buffersize = 8 * display.getBufferTileHeight() * display.getBufferTileWidth();
-
-      Serial.println("Display buffer " + String(buffersize));
-
+        
+      } else if(msg=="rendered") {
+        rendering = false;
+        // avoid recursion (or not?)
+        return;
+      } else if(msg=="screen") {
       
-      for(int i=0;i<buffersize; i++) {
-        Serial.print( bufferptr[i], HEX );
-        Serial.print(" ");
-        if(i%8==0) Serial.println();
-        out += (char) bufferptr[i];
+        if(rendering==false) {
+          rendering = true;
+          screenCapture();
+          client->binary(ScreenPixels);
+          lastfps = millis();
+        }
+
       }
 
-      client->binary(out);
-
+/*
       if(info->opcode == WS_TEXT)
         client->text("I got your text message");
       else
         client->binary("I got your binary message");
+*/
     } else {
       //message is comprised of multiple frames or the frame is split into multiple packets
+      // ignore it
+      return;
+      /*
       if(info->index == 0){
         if(info->num == 0)
           Serial.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
@@ -106,7 +145,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       }
 
       Serial.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
-
+      
       if(info->opcode == WS_TEXT){
         for(size_t i=0; i < info->len; i++) {
           msg += (char) data[i];
@@ -129,7 +168,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
           else
             client->binary("I got your binary message");
         }
-      }
+      }*/
     }
   }
 }
@@ -137,15 +176,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 
 
 
-void drawOta() {
-    while( display.nextPage() );
-}
 
-void progressbar(uint8_t a) {
-    display.drawFrame(0,50,120,10);
-    display.drawVLine(a,51,8);
-    drawOta();
-}
 
 void startWifi(){
   WiFi.disconnect(true);
@@ -265,9 +296,9 @@ void setupOta() {
   display.firstPage();
   
   Serial.begin(115200);
-  display.drawStr(10, 50, "OTA Check");
+  display.drawStr(10, 40, "OTA Check");
   progressbar(1);
-  drawOta();
+  drawPage();
 
   #if DEBUGOTA==true
     Serial.println("OTA Check");
@@ -295,8 +326,8 @@ void setupOta() {
     #if DEBUGOTA==true
       Serial.println("Connection Failed! Aborting...");
     #endif
-    display.drawStr(10, 50, "OTA Fail, aborting");
-    drawOta();
+    display.drawStr(10, 40, "OTA Fail, aborting");
+    drawPage();
     delay(1000);
     otaready = false;
     stopWifi();
@@ -307,7 +338,7 @@ void setupOta() {
   }
 
   progressbar(10);
-  drawOta();
+  drawPage();
 
   ArduinoOTA.onStart([]() {
     String type;
@@ -331,24 +362,24 @@ void setupOta() {
       Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
     #endif
     //display.clear();
-    display.drawStr(10, 50, "OTA Flashing");
+    display.drawStr(10, 40, "OTA Flashing");
     progressbar((progress / (total / 100)));
     //display.drawProgressBar(14, 27, 100, 10, 20);
-    drawOta();
+    drawPage();
   });
   ArduinoOTA.onError([](ota_error_t error) {
     #if DEBUGOTA==true
       Serial.printf("Error[%u]: ", error);
     #endif
     //display.clear();
-    display.drawStr(10, 50, "Error");
+    display.drawStr(10, 40, "Error");
     if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
     else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
     else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
     else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
     otaready = false;
-    drawOta();
+    drawPage();
   });
 
   ArduinoOTA.setHostname("GhettoBlaster");
@@ -357,15 +388,15 @@ void setupOta() {
   //display.clear();
   //display.drawProgressBar(14, 27, 100, 10, 20);
   progressbar(20);
-  display.drawStr(10, 50, "OTA Ready");
-  drawOta();
+  display.drawStr(10, 40, "OTA Ready");
+  drawPage();
   #if DEBUGOTA==true
     Serial.println("Ready");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
   #endif
   otanow = millis();
-  drawOta();
+  drawPage();
 }
 
 
@@ -388,7 +419,7 @@ void handleOta() {
     
   }
   
-  drawOta();
+  drawPage();
 }
 
 

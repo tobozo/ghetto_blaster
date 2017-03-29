@@ -22,7 +22,9 @@
       flex-direction: row;
       align-content: center;
       max-width: 750px;
+      max-height:450px;
       margin: auto;
+      position:relative;
     }
     
     .ghetto-box button {
@@ -32,6 +34,38 @@
       opacity: 1;
       background-color: transparent;
       color: transparent;
+    }
+    
+    #ssd1306 {
+      position: absolute;
+      left: 50%;
+      top: 41%;
+      width: 17%;
+      height: 18%;
+      transform: translate(-50%, -50%);
+      background: black;
+    }
+    
+    
+    .wheel {
+      position: absolute;
+      width: 7.5%;
+      height: 13%;
+      left: 32%;
+      top: 34%;
+      background-image: inherit;
+      background-position: -73% -76%;
+      background-size: 100vw;
+      opacity: 0.5;
+      border-radius: 50%;
+      transition: all 1s ease-in;
+    }
+    .wheel+.wheel {
+      left: 60%;
+    }
+    
+    .spin {
+      transform: rotate(720deg);
     }
     
 
@@ -57,7 +91,7 @@
 
     </style>
     <script type="text/javascript">
-    var ws = null, debug = false;
+    var ws = null, debug = false, canvas, ctx, refreshTimer;
     function ge(s){ return document.getElementById(s);}
     function ce(s){ return document.createElement(s);}
     //function stb(){ /*window.scrollTo(0, document.body.scrollHeight || document.documentElement.scrollHeight);*/ }
@@ -77,13 +111,20 @@
       ws.binaryType = "arraybuffer";
       ws.onopen = function(e){
         addMessage("Connected");
+        
+        refreshTimer = setInterval(function() {
+          ws.send('screen');
+        }, 1000);
+        
       };
       ws.onclose = function(e){
         addMessage("Disconnected");
+        clearInterval(refreshTimer);
       };
       ws.onerror = function(e){
         console.log("ws error", e);
         addMessage("Error");
+        clearInterval(refreshTimer);
       };
       ws.onmessage = function(e){
         var msg = "";
@@ -93,10 +134,18 @@
           for (var i = 0; i < bytes.length; i++) {
             msg += String.fromCharCode(bytes[i]);
           }
+          
+          if(bytes.length===1024) {
+            renderMessage(bytes);
+          } else {
+            console.log(bytes.length, bytes);
+          }
+          
         } else {
           msg = "TXT:"+e.data;
         }
         if(debug) addMessage(msg);
+
       };
       ge("input_el").onkeydown = function(e){
         //stb();
@@ -115,7 +164,51 @@
       ge('click').onclick = function(e) {
         ws.send('rotaryclick');
       }
+      
+      canvas = ge('ssd1306');
+      ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'rgb(255,255,255)';
+      canvas.width = 128;
+      canvas.height = 64;
+      
     }
+    
+    function renderMessage(data) {
+      var pixels = "";
+      var imgData = ctx.getImageData(0, 0, 128, 64);
+      var imgPixels = imgData.data;
+      var thispixel, pixcolor;
+      var buff = [];
+      
+      for(var i=0;i<1024;i++) {
+        var yoffset = Math.floor(i/128)*8;
+        var byte = data[i].toString(2); // to binary
+        byte = (new Array(9- byte.length).join('0') + byte).split(""); // leftpad it
+        for(var j=7;j>=0;j--) {
+          if(buff[yoffset+8-j]==undefined) buff[yoffset+8-j] = "";
+          buff[yoffset+8-j] += byte[j];
+        }
+      }
+
+      pixels = buff.join("").split("");
+      
+      for(var i=0,len=imgPixels.length;i<len;i +=4) {
+        thispixel = pixels.pop();
+        pixcolor = thispixel*255;
+        //console.log(thispixel, pixcolor);
+        imgPixels[i]   = pixcolor;
+        imgPixels[i+1] = pixcolor;
+        imgPixels[i+2] = pixcolor;
+        imgPixels[i+3] = 255; // alpha
+      }
+      ctx.putImageData(imgData, 0, 0);
+      ws.send('rendered');
+      document.querySelector('.wheel').classList.toggle('spin');
+      document.querySelector('.wheel+.wheel').classList.toggle('spin');
+      
+    }
+    
+    
     
     function startEvents(){
       var es = new EventSource('/events');
@@ -143,6 +236,9 @@
   <body id="body" onload="onBodyLoad()">
   
   <div class="ghetto-box">
+    <div class="wheel"></div>
+    <div class="wheel"></div>
+    <canvas id="ssd1306"></canvas>
     <button id="down">&lt;-</button>
     <button id="click"> O </button>
     <button id="up">&gt;-</button>

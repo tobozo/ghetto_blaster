@@ -58,14 +58,19 @@ void setTunerInfo() {
 
 /// Update the ServiceName text on the LCD display.
 void DisplayServiceName(char *name) {
+  String out="";
   for (uint8_t n = 0; n < 8; n++) {
     if (name[n] != ' ') {
       //Serial.println("RDS:" + String(name));
-      ScrollText = String(name);
-      setTunerInfo();
-      return;
+      out += String(name);
     }
   }
+  if(out!="") {
+    ScrollText = out;
+    setTunerInfo();
+  }
+
+  return;
 } // DisplayServiceName()
 
 

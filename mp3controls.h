@@ -165,11 +165,12 @@ String sbyte2hex(uint8_t b) {
 
 
 
-void setVolume(uint8_t volume) {
+void setVolume(uint8_t vol) {
   if(playmodes[5]==LABEL_MODE_MP3) {
-    runMP3SerialCommand(CMD_SET_VOLUME, volume);
+    runMP3SerialCommand(CMD_SET_VOLUME, vol);
   } else {
-    radio.setVolume((uint8_t)(volume/2));
+    radio.setVolume((uint8_t)(vol/2));
+    volume = radio.getVolume()*2;
   }
 }
 
@@ -275,7 +276,7 @@ void handleMenu()  {
       
       if(inmenu) {
         switch(menupos) {
-          case 0:
+          case 0: // volume controls
             inmenu = !inmenu;
           break;
           case 1: // song controls
@@ -288,7 +289,7 @@ void handleMenu()  {
         }
       } else {
         switch(menupos) {
-          case 0:
+          case 0: // volume controls
             inmenu = !inmenu;
           break;
           case 1: // song controls
@@ -348,6 +349,7 @@ void handleMenu()  {
                     digitalWrite(ARDUINO_AUDIO_RELAY_PIN, LOW);//DTDT relay inactive
                     runMP3SerialCommand(CMD_SLEEP_MODE, 0);
                     setTunerInfo();
+                    playing = false;
                   } else {
                     playmodes[playmode] = LABEL_MODE_MP3;
                     digitalWrite(ARDUINO_AUDIO_RELAY_PIN, HIGH);//DTDT relay inactive
@@ -355,7 +357,10 @@ void handleMenu()  {
                     delay(200);
                     runMP3SerialCommand(CMD_PLAY, 0);
                     ScrollText = "";
+                    playing = true;
                   }
+                  inmenu = !inmenu;
+                  menupos = 1;
                 break;
                 case 6: ;break;
               }
@@ -371,8 +376,9 @@ void handleMenu()  {
       
       if(playing) {
         runMP3SerialCommand(CMD_PLAYING_N, 0x0000); //-- Demande numéro du fichier en cours de lecture
+        delay(100);
         runMP3SerialCommand(CMD_GET_VOLUME, 0x0000);
-        delay(200);
+        delay(100);
       }
 
       Switchdebounce = millis();
@@ -389,8 +395,8 @@ void handleMenu()  {
     RotarySwitchDetected = false;
   }
  
-  if (RotaryTurnDetected)  {       // do this only if rotation was detected
-    if(millis() > Rotarydebounce+200) {
+  if(RotaryTurnDetected)  {       // do this only if rotation was detected
+    if(millis() > Rotarydebounce+500) {
       
       if (RotaryUp) {
 
@@ -420,10 +426,11 @@ void handleMenu()  {
               }
             break;
             case 0: // TODO: tuner control
-              if(volume+1>volumeMax) {
+              if(volume+accel>volumeMax) {
                 // ignore
               } else {
                 //sendMP3Command('u');
+                volume = volume + accel;
                 volume++;
                 setVolume(volume);
               }
@@ -462,10 +469,11 @@ void handleMenu()  {
               }
             break;
             case 0: // volume control TODO: tuner control
-              if(volume-1<volumeMin) {
+              if(volume-accel<volumeMin) {
                 // ignore
               } else {
-                volume--;
+                volume = volume - accel;
+                //volume--;
                 setVolume(volume);
               }
               VolMessage = VOLUME_PREFIX + String(volume);
@@ -485,6 +493,10 @@ void handleMenu()  {
         Serial.print (", menupos = ");  
         Serial.println (menupos);
       #endif
+
+      accel = 1;
+    } else {
+      accel++;
       
     }
     RotaryTurnDetected = false;          // do NOT repeat IF loop until new rotation detected

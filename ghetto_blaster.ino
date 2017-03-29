@@ -106,13 +106,19 @@ void loop() {
   handleMenu();
 
   #ifdef ESP8266
-  if ((millis() - lasttick) > 10000) { //-- Demande toute les 10s  
-    lasttick = millis();  
-    runMP3SerialCommand(CMD_PLAYING_N, 0x0000); //-- Demande numéro du fichier en cours de lecture
-    delay(200);  
-    runMP3SerialCommand(CMD_GET_VOLUME, 0x0000);
-    delay(200);
-  }
+  /*
+  if ((millis() - lasttick) > 1000) { //-- Demande toute les 1s  
+    lasttick = millis();
+    if(playing) {
+      runMP3SerialCommand(CMD_PLAYING_N, 0x0000); //-- Demande numéro du fichier en cours de lecture
+      delay(100);
+      decodeMP3Answer();
+      runMP3SerialCommand(CMD_GET_VOLUME, 0x0000);
+      delay(100);
+      decodeMP3Answer();
+    }
+    return;
+  }*/
 
   if ((millis() - lastScrollTick) > scrollTickLength) {
     lastScrollTick = millis();
@@ -121,7 +127,7 @@ void loop() {
   }
   #endif
 
-  if (mp3Serial.available()) {
+  if(mp3Serial.available()) {
     decodeMP3Answer();
   }
 
