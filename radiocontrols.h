@@ -121,7 +121,7 @@ void runTunerSerialCommand(char cmd, int16_t value) {
 
       radio.getRadioInfo(&ri);
 
-      #if debug==true
+      #if debugblaster==true
         if (ri.tuned) {
           radio.formatFrequency(sFreq, sizeof(sFreq));
           Serial.print(sFreq);
@@ -158,7 +158,7 @@ void runTunerSerialCommand(char cmd, int16_t value) {
       }
       fLast = f;
 
-      #if debug==true
+      #if debugblaster==true
         #if USE_RDS == true
           if ((ri.tuned) && (ri.rssi > 42) && (ri.snr > 12)) {
             radio.checkRDS();

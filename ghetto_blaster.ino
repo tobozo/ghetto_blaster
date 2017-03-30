@@ -55,7 +55,8 @@
  * 
  */
 
-#define debug true
+#define debugblaster true
+
 #ifdef ESP8266
 #define ARDUINO_AUDIO_RELAY_PIN D8 // relay sound LOW/HIGH for DR21A01 DC 5V DPDT
 #else
@@ -70,6 +71,8 @@
 #include "wificontrols.h"
 #endif
 
+#define WIFI_MANAGER_USE_ASYNC_WEB_SERVER
+#include <WiFiManager.h>
 
 
 void setup() {
@@ -140,7 +143,7 @@ void loop() {
   }
 
 
-  #if debug==true
+  #if debugblaster==true
   char c;
   if (Serial.available() > 0) {
     // read the next char from input.

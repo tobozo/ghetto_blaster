@@ -49,7 +49,7 @@ void initRotary() {
   pinMode(RotaryPinSW,INPUT_PULLUP);
   attachInterrupt (digitalPinToInterrupt(RotaryPinDT), onRotaryClick, CHANGE);
   attachInterrupt (digitalPinToInterrupt(RotaryPinSW), onRotaryRotate, CHANGE);
-  #if debug==true
+  #if debugblaster==true
     Serial.println("Rotary interrupts enabled");
   #endif
 }

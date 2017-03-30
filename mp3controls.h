@@ -127,7 +127,7 @@ boolean menuitemselected = false;
 /*Parameter:-int8_t command                                                     */
 /*Parameter:-int16_ dat  parameter for the command                              */
 void runMP3SerialCommand(int8_t command, int16_t dat) {
-  #if debug==true
+  #if debugblaster==true
     Serial.print("[SENDING] ");
     Serial.print(command, HEX);
     Serial.print(" / ");
@@ -152,7 +152,7 @@ void runMP3SerialCommand(int8_t command, int16_t dat) {
 /*Function: sbyte2hex. Returns a byte data in HEX format.                 */
 /*Parameter:- uint8_t b. Byte to convert to HEX.                                */
 /*Return: String                                                                */
-#if debug==true
+#if debugblaster==true
 String sbyte2hex(uint8_t b) {
   String shex;
   shex="0X";
@@ -189,13 +189,13 @@ void decodeMP3Answer(){
   while(mp3Serial.available() && (i < 10)) {
     uint8_t b = mp3Serial.read();
     Recv_buf[i] = b;
-    #if debug==true
+    #if debugblaster==true
     Serial.print(" 0x");
     Serial.print(b, HEX);
     #endif
     i++;
   }
-  #if debug==true
+  #if debugblaster==true
   Serial.println();
   #endif
   
@@ -383,7 +383,7 @@ void handleMenu()  {
 
       Switchdebounce = millis();
       repaint_needed = true;
-      #if debug==true
+      #if debugblaster==true
         Serial.print (", autoplay = ");  
         Serial.print (autoplay);      
         Serial.print (", inmenu = ");  
@@ -487,7 +487,7 @@ void handleMenu()  {
       Rotarydebounce = millis();
       repaint_needed = true;
       
-      #if debug==true
+      #if debugblaster==true
         Serial.print (", inmenu = ");  
         Serial.print (inmenu);
         Serial.print (", menupos = ");  
