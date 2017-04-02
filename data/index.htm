@@ -44,8 +44,18 @@
       height: 18%;
       transform: translate(-50%, -50%);
       background: black;
+      box-sizing: content-box;
+      border: 2px solid black;
+      transition: all 0.3s ease;
     }
     
+    #ssd1306.clicked {
+      width: 100%;
+      height: 89%;
+      z-index: 2;
+      position: absolute;
+      top: 44%;
+    }
     
     .wheel {
       position: absolute;
@@ -59,6 +69,7 @@
       opacity: 0.5;
       border-radius: 50%;
       transition: all 1s ease-in;
+      z-index:1;
     }
     .wheel+.wheel {
       left: 60%;
@@ -91,7 +102,7 @@
 
     </style>
     <script type="text/javascript">
-    var ws = null, debug = false, canvas, ctx, refreshTimer;
+    var ws = null, debug = false, canvas, ctx, refreshTimer, lastRendered, lagCheck = 5000;
     function ge(s){ return document.getElementById(s);}
     function ce(s){ return document.createElement(s);}
     //function stb(){ /*window.scrollTo(0, document.body.scrollHeight || document.documentElement.scrollHeight);*/ }
@@ -113,8 +124,10 @@
         addMessage("Connected");
         
         refreshTimer = setInterval(function() {
-          ws.send('screen');
-        }, 1000);
+          if(lastRendered + lagCheck > Date.now()) return;
+          console.log('lag detected, force rendering');
+          ws.send('rendered');
+        }, lagCheck);
         
       };
       ws.onclose = function(e){
@@ -205,7 +218,7 @@
       ws.send('rendered');
       document.querySelector('.wheel').classList.toggle('spin');
       document.querySelector('.wheel+.wheel').classList.toggle('spin');
-      
+      lastRendered = Date.now();
     }
     
     
@@ -230,6 +243,7 @@
     function onBodyLoad(){
       startSocket();
       startEvents();
+      canvas.onclick = function() { this.classList.toggle('clicked') };
     }
     </script>
   </head>
