@@ -71,10 +71,6 @@
 #include "wificontrols.h"
 #endif
 
-#define WIFI_MANAGER_USE_ASYNC_WEB_SERVER
-#include <WiFiManager.h>
-
-
 void setup() {
   Serial.begin(115200);
   
@@ -104,7 +100,48 @@ void loop() {
     handleOta();
     return;
   }
+
+  if(wifimanagerenabled==true) {
+    /*
+    ghettoserver.reset();
+    WiFiManager wifiManager;
+
+    //reset settings - for testing
+    wifiManager.resetSettings();
+
+    //sets timeout until configuration portal gets turned off
+    //useful to make it all retry or go to sleep
+    //in seconds
+    wifiManager.setTimeout(120);
+
+    //it starts an access point with the specified name
+    //here  "AutoConnectAP"
+    //and goes into a blocking loop awaiting configuration
+
+    //WITHOUT THIS THE AP DOES NOT SEEM TO WORK PROPERLY WITH SDK 1.5 , update to at least 1.5.1
+    //WiFi.mode(WIFI_STA);
+
+    if (!wifiManager.startConfigPortal(ssid, password)) {
+      Serial.println("failed to connect and hit timeout, will reset");
+      delay(3000);
+      //reset and try again, or maybe put it to deep sleep
+      ESP.reset();
+      delay(5000);
+    }
+
+    //if you get here you have connected to the WiFi
+    Serial.println("connected...yeey :)");
+    //WiFi.begin();
+    startSocketServer();
+    */
+    wifimanagerenabled = false;
+    return;
+  }
+
+  
   #endif
+
+  
  
   handleMenu();
 
@@ -125,7 +162,7 @@ void loop() {
 
   if ((millis() - lastScrollTick) > scrollTickLength) {
     lastScrollTick = millis();
-    ScrollTextPos = ScrollTextPos + scrollTickStep;
+    scrollText();
     repaint_needed = true;
   }
   #endif
@@ -140,8 +177,15 @@ void loop() {
     do { draw(); } 
     while( display.nextPage() );
     repaint_needed = false;
-  }
 
+    if(rendering==false && millis() - fpsdebounce > lastfps) {
+      if(currentClient!=0) {
+        rendering = true;
+        screenCapture();
+        ws.client(currentClient)->binary(ScreenPixels);
+      }
+    }
+  }
 
   #if debugblaster==true
   char c;

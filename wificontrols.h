@@ -8,7 +8,9 @@
 #include <Hash.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <SPIFFSEditor.h>
+
+#define WIFI_MANAGER_USE_ASYNC_WEB_SERVER
+#include <WiFiManager.h>
 
 extern "C" {
   #include "user_interface.h"
@@ -16,9 +18,14 @@ extern "C" {
 
 
 // SKETCH BEGIN
-AsyncWebServer server(80);
+AsyncWebServer ghettoserver(80);
 AsyncWebSocket ws("/ws");
 AsyncEventSource events("/events");
+
+String myIP;
+
+// current websocket client ID
+uint32_t currentClient = 0;
 
 /* Set these to your desired credentials */
 const char *ssid = "ghetto";
@@ -29,12 +36,16 @@ const char* http_password = "admin";
 // OTA updatable as long as the bool is true
 bool otaready = true;
 int otawait = 20000; // how long to wait for OTA at boot (millisec)
-int otanow; // time counter for OTA update
+unsigned long otanow; // time counter for OTA update
+
+// enable the wifi manager
+bool wifimanagerenabled = false;
 
 long lastfps = 0;
-long fpsdebounce = 500; // no less than 1000ms between frames
-bool rendering = false;
+long fpsdebounce = 1000; // no less than 1000ms between frames
+bool rendering = false; // is client ready for image rendering ?
 
+// 1024 bytes
 String ScreenPixels = "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
 void drawPage() {
@@ -50,12 +61,9 @@ void progressbar(uint8_t a) {
 }
 
 void screenCapture() {
-    if(rendering==false) return;
     display.firstPage();
-    //handleMenu();
     draw();
     drawPage();
-    
     ScreenPixels = "";      
     uint8_t * bufferptr = display.getBufferPtr();
     int buffersize = 8 * display.getBufferTileHeight() * display.getBufferTileWidth();
@@ -67,6 +75,9 @@ void screenCapture() {
 
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
+  
+  currentClient = client->id();
+  
   if(type == WS_EVT_CONNECT){
     Serial.printf("ws[%s][%u] connect\n", server->url(), client->id());
     //client->printf("Hello Client %u :)", client->id());
@@ -77,8 +88,10 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
     //client->ping();
   } else if(type == WS_EVT_DISCONNECT){
     Serial.printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
+    currentClient = 0;
   } else if(type == WS_EVT_ERROR){
     Serial.printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
+    currentClient = 0;
   } else if(type == WS_EVT_PONG){
     Serial.printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len)?(char*)data:"");
   } else if(type == WS_EVT_DATA){
@@ -100,7 +113,6 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         }
       }
       //Serial.printf("%s\n",msg.c_str());
-
       if(msg=="rotaryup") {
         RotaryTurnDetected = true;
         RotaryUp = true;
@@ -115,60 +127,11 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       } else if(msg=="rendered") {
         rendering = false;
         // avoid recursion (or not?)
-        return;
-      } else if(msg=="screen") {
-      
-        if(rendering==false) {
-          rendering = true;
-          screenCapture();
-          client->binary(ScreenPixels);
-          lastfps = millis();
-        }
-
       }
-
-/*
-      if(info->opcode == WS_TEXT)
-        client->text("I got your text message");
-      else
-        client->binary("I got your binary message");
-*/
     } else {
-      //message is comprised of multiple frames or the frame is split into multiple packets
-      // ignore it
+      // message is comprised of multiple frames or the frame is split into multiple packets
+      // in this context it's safe to ignore it
       return;
-      /*
-      if(info->index == 0){
-        if(info->num == 0)
-          Serial.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
-        Serial.printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
-      }
-
-      Serial.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
-      
-      if(info->opcode == WS_TEXT){
-        for(size_t i=0; i < info->len; i++) {
-          msg += (char) data[i];
-        }
-      } else {
-        char buff[3];
-        for(size_t i=0; i < info->len; i++) {
-          sprintf(buff, "%02x ", (uint8_t) data[i]);
-          msg += buff ;
-        }
-      }
-      Serial.printf("%s\n",msg.c_str());
-
-      if((info->index + len) == info->len){
-        Serial.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
-        if(info->final){
-          Serial.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
-          if(info->message_opcode == WS_TEXT)
-            client->text("I got your text message");
-          else
-            client->binary("I got your binary message");
-        }
-      }*/
     }
   }
 }
@@ -192,8 +155,8 @@ void startWifi(){
   IPAddress myIP = WiFi.softAPIP();
   Serial.print("AP WebServer IP address: ");
   Serial.println(myIP);
-  //server.on("/", handleRoot);
-  //server.begin();
+  //ghettoserver.on("/", handleRoot);
+  //ghettoserver.begin();
   Serial.println("HTTP server started");
 }
 
@@ -211,21 +174,15 @@ void startSocketServer() {
     SPIFFS.begin();
   
     ws.onEvent(onWsEvent);
-    server.addHandler(&ws);
+    ghettoserver.addHandler(&ws);
     events.onConnect([](AsyncEventSourceClient *client){
       client->send("hello!",NULL,millis(),1000);
     });
-    server.addHandler(&events);
-  
-    server.addHandler(new SPIFFSEditor(http_username,http_password));
-      
-    server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(200, "text/plain", String(ESP.getFreeHeap()));
-    });
-  
-    server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.htm");
+    ghettoserver.addHandler(&events);
+ 
+    ghettoserver.serveStatic("/", SPIFFS, "/").setDefaultFile("index.htm").setCacheControl("max-age:86400");
 
-    server.onNotFound([](AsyncWebServerRequest *request){
+    ghettoserver.onNotFound([](AsyncWebServerRequest *request){
       Serial.printf("NOT_FOUND: ");
       if(request->method() == HTTP_GET)
         Serial.printf("GET");
@@ -272,27 +229,22 @@ void startSocketServer() {
       request->send(404);
     });
     
-    server.onFileUpload([](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final){
-      if(!index)
-        Serial.printf("UploadStart: %s\n", filename.c_str());
-      Serial.printf("%s", (const char*)data);
-      if(final)
-        Serial.printf("UploadEnd: %s (%u)\n", filename.c_str(), index+len);
-    });
-    
-    server.onRequestBody([](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+    ghettoserver.onRequestBody([](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
       if(!index)
         Serial.printf("BodyStart: %u\n", total);
       Serial.printf("%s", (const char*)data);
       if(index + len == total)
         Serial.printf("BodyEnd: %u\n", total);
     });
-    server.begin();
+    ghettoserver.begin();
 }
 
 
+
+
+
 void setupOta() {
-  ESP.eraseConfig();
+  // ESP.eraseConfig();
   display.firstPage();
   
   Serial.begin(115200);
@@ -322,6 +274,8 @@ void setupOta() {
   //WiFi.hostname("GhettoBlasterOTA");
   WiFi.mode(WIFI_STA);
   WiFi.begin(); // see you on shodan.io :)
+
+  /*
   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
     #if DEBUGOTA==true
       Serial.println("Connection Failed! Aborting...");
@@ -335,12 +289,22 @@ void setupOta() {
     delay(300);
     startSocketServer();
     return;
-  }
+  }*/
 
   progressbar(10);
   drawPage();
 
   ArduinoOTA.onStart([]() {
+
+    // Clean SPIFFS
+    SPIFFS.end();
+    // Disable client connections    
+    ws.enable(false);
+    // Advertise connected clients what's going on
+    ws.textAll("OTA Update Started");
+    // Close them
+    ws.closeAll();
+    
     String type;
     if (ArduinoOTA.getCommand() == U_FLASH)
       type = "sketch";
@@ -390,12 +354,13 @@ void setupOta() {
   progressbar(20);
   display.drawStr(10, 40, "OTA Ready");
   drawPage();
+  myIP = WiFi.localIP().toString();
   #if DEBUGOTA==true
     Serial.println("Ready");
     Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
+    Serial.println(myIP);
   #endif
-  otanow = millis();
+  otanow = millis() - otawait; // don't wait for OTA on boot
   drawPage();
 }
 

@@ -1,6 +1,8 @@
 #include <SoftwareSerial.h>
 
 #ifdef ESP8266
+#include <ESP8266WiFi.h>
+extern String myIP;
 #define ARDUINO_RX D4 // should connect to TX of the Serial MP3 Player module
 #define ARDUINO_TX D3 // connect to RX of the module
 SoftwareSerial mp3Serial(ARDUINO_RX, ARDUINO_TX);
@@ -69,6 +71,12 @@ SoftwareSerial mp3Serial(ARDUINO_RX, ARDUINO_TX);
 #define LABEL_EXIT "Exit"
 #define LABEL_MODE_MP3 "Mp3"
 #define LABEL_MODE_TUNER "Tuner"
+#ifdef ESP8266
+#define LABEL_OTA "OTA"
+#define LABEL_WIFI "WiFi"
+#define LABEL_RESET "Reset"
+#define DEFAULT_SCROLLTEXT "Ghetto Blaster "
+#endif
 
 static uint8_t pre_vol, volume = 9; // Volume. 0-30 DEC values. 0x0f = 15. 
 const static uint8_t volumeMin = 0, volumeMax = 30;
@@ -90,8 +98,19 @@ boolean ignoredupe = true;
 
 uint8_t playmode = 0; // 0 = full cycleplay, 1 = single cycle play, 
 uint8_t playmodeMin = 0;
+
+#ifdef ESP8266
+extern bool otaready;
+extern unsigned long otanow;
+extern bool wifimanagerenabled;
+uint8_t playmodeMax = 9;
+String playmodes[10] = {PLAYMODE_AUTOPLAY_ON, LOOP_MODE_SINGLE_OFF, /*LABEL_SLEEP, LABEL_RESET, */LABEL_PAUSE, LABEL_STOP, LABEL_SHUFFLE, LABEL_MODE_MP3, LABEL_EXIT, 
+                       LABEL_OTA, LABEL_WIFI, LABEL_RESET};
+#else
 uint8_t playmodeMax = 6;
 String playmodes[7] = {PLAYMODE_AUTOPLAY_ON, LOOP_MODE_SINGLE_OFF, /*LABEL_SLEEP, LABEL_RESET, */LABEL_PAUSE, LABEL_STOP, LABEL_SHUFFLE, LABEL_MODE_MP3, LABEL_EXIT};
+#endif
+
 /***************************
   0, // play with index
   1, // set single cycle play
@@ -315,20 +334,6 @@ void handleMenu()  {
                     playmodes[playmode] = LOOP_MODE_SINGLE_OFF;
                   }
                 break;
-                /*
-                case 2: 
-                  if(!isasleep) {
-                    runMP3SerialCommand(CMD_SLEEP_MODE, 0); 
-                    isasleep = true;
-                    playmodes[playmode] = LABEL_WAKE;
-                  } else {
-                    runMP3SerialCommand(CMD_WAKE_UP, 0); 
-                    isasleep = false;
-                    playmodes[playmode] = LABEL_SLEEP;
-                  }
-                break;
-                case 3: runMP3SerialCommand(CMD_RESET, 0);break;
-                */
                 case 2: 
                  if(!playing) {
                    runMP3SerialCommand(CMD_PLAY, 0); 
@@ -343,7 +348,7 @@ void handleMenu()  {
                 case 3: runMP3SerialCommand(CMD_STOP_PLAY, 0); playing = false; break;
                 case 4: runMP3SerialCommand(CMD_SHUFFLE_PLAY, 0);break;
                 case 5:
-                  ScrollText = "";
+                  ScrollText = DEFAULT_SCROLLTEXT;
                   if(playmodes[playmode]==LABEL_MODE_MP3) {
                     playmodes[playmode] = LABEL_MODE_TUNER;
                     digitalWrite(ARDUINO_AUDIO_RELAY_PIN, LOW);//DTDT relay inactive
@@ -356,14 +361,20 @@ void handleMenu()  {
                     runMP3SerialCommand(CMD_WAKE_UP, 0);
                     delay(200);
                     runMP3SerialCommand(CMD_PLAY, 0);
-                    ScrollText = "";
+                    ScrollText = DEFAULT_SCROLLTEXT;
                     playing = true;
                   }
                   inmenu = !inmenu;
                   menupos = 1;
                 break;
                 case 6: ;break;
+                #ifdef ESP8266
+                case 7: otaready = true; otanow = millis(); break;
+                case 8: wifimanagerenabled = true; break;
+                case 9: ESP.restart(); break;
+                #endif
               }
+              
               delay(200);
             } else {
               menuitemselected = true;
@@ -406,14 +417,28 @@ void handleMenu()  {
           } else {
             menupos++;
           }
+          switch(menupos) {
+            case 2: // mode control
+              myIP = WiFi.localIP().toString();
+              ScrollText = "IP:" + myIP + " ";
+            break;
+            case 1: // song control
+              //ScrollText = playmodes[5];
+            break;
+            case 0: // volume control
+              ScrollText = playmodes[5] + ": " + SongMessage + " ";
+            break;
+          }
         } else {
           switch(menupos) {
-            case 2:
+            case 2: // mode control
               if(playmode+1>playmodeMax) {
                 playmode = playmodeMin;
               } else {
                 playmode++;
               }
+              myIP = WiFi.localIP().toString();
+              ScrollText = "IP:" + myIP + " ";
             break;
             case 1: // song controls
               if(playmodes[5]==LABEL_MODE_MP3) {
@@ -421,11 +446,11 @@ void handleMenu()  {
               } else {
                 radio.seekUp(true);
                 delay(200);
-                ScrollText = "";
+                ScrollText = DEFAULT_SCROLLTEXT;
                 setTunerInfo();
               }
             break;
-            case 0: // TODO: tuner control
+            case 0: // volume control
               if(volume+accel>volumeMax) {
                 // ignore
               } else {
@@ -464,7 +489,7 @@ void handleMenu()  {
               } else {
                 radio.seekDown(true);
                 delay(200);
-                ScrollText = "";
+                ScrollText = DEFAULT_SCROLLTEXT;
                 setTunerInfo();
               }
             break;

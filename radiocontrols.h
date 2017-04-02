@@ -66,7 +66,7 @@ void DisplayServiceName(char *name) {
     }
   }
   if(out!="") {
-    ScrollText = out;
+    ScrollText = out + " ";
     setTunerInfo();
   }
 
